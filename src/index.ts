@@ -1,10 +1,10 @@
 import 'dotenv/config';
-import { stepCountIs, streamText, type ModelMessage } from 'ai';
+import { type ModelMessage } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createMockModel } from './mock-model';
 import { createInterface } from 'node:readline';
 import { weatherTool, calculatorTool } from './tools/utility-tools';
-import { agentLoop } from './agent/loop';
+import { agentLoop, BudgetState } from './agent/agent-loop';
 
 const tools = { get_weather: weatherTool, calculator: calculatorTool };
 
@@ -28,6 +28,9 @@ const SYSTEM = `你是 Super Agent，一个有工具调用能力的 AI 助手。
 
 const messages: ModelMessage[] = [];
 
+// 预算由调用方持有，跨轮持续累计 -- agentLoop 只负责消费它
+const budget: BudgetState = { used: 0, limit: 15000 }
+
 function ask() {
   rl.question('\nYou: ', async (input) => {
     const trimmed = input.trim();
@@ -39,7 +42,7 @@ function ask() {
 
     messages.push({ role: 'user', content: trimmed });
 
-    await agentLoop(model, tools, messages, SYSTEM);
+    await agentLoop(model, tools, messages, SYSTEM, budget);
 
     ask();
   });
